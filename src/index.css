@@ -1,0 +1,322 @@
+@import url("https://fonts.googleapis.com/css2?family=Oranienbaum&display=swap");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #ffffff;
+  color: #141414;
+}
+
+:root {
+  --grid-gap: 50px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-header {
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  font-family: "Oranienbaum", system-ui, -apple-system, Segoe UI, Roboto,
+    sans-serif;
+}
+
+.app-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+}
+
+.app-header-row--main {
+  align-items: center;
+}
+
+.app-header-text {
+  min-width: 0;
+}
+
+.app-header-filters {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.app-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.62);
+}
+
+.app-header a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.app-header a:hover {
+  color: #1d4ed8;
+}
+
+.filter-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(100%, 28rem);
+}
+
+.filter-btn {
+  appearance: none;
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(20, 20, 20, 0.9);
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.filter-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.filter-btn--active {
+  color: #ffffff;
+  background: #141414;
+  border-color: #141414;
+}
+
+.filter-btn--active:hover {
+  background: #2a2a2a;
+  border-color: #2a2a2a;
+}
+
+@media (max-width: 720px) {
+  .app-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-header-filters {
+    justify-content: flex-start;
+  }
+
+  .filter-bar {
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
+
+.grid-shell {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.thiings-layer {
+  border-radius: 0;
+  background: #ffffff;
+}
+
+/*
+ * Per-cell reveal: fully sharp at every keyframe — only scale goes 0 → 100%.
+ */
+@keyframes photo-cell-scale-in {
+  from {
+    opacity: 1;
+    transform: scale(0.7);
+    filter: none;
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+}
+
+/*
+ * Fixed gutter: same inset on every cell so spacing between image edges is uniform.
+ * object-fit: cover fills the frame (center crop) so aspect ratio doesn’t leave uneven letterboxing.
+ */
+.photo-cell {
+  position: absolute;
+  inset: var(--grid-gap);
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: #ffffff;
+  box-shadow: none;
+  padding: 0;
+  cursor: zoom-in;
+  text-align: inherit;
+  transform-origin: center center;
+  animation: photo-cell-scale-in 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+.photo-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  transform: scale(1);
+  transform-origin: center center;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.photo-cell[data-active="true"] img {
+  visibility: hidden;
+}
+
+.photo-cell:hover img {
+  transform: scale(1.08);
+}
+
+.photo-cell:hover {
+  z-index: 10;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  transition: background-color 220ms ease;
+}
+
+.lightbox--backdrop {
+  background: rgba(255, 255, 255, 1);
+}
+
+.lightbox-content {
+  display: grid;
+  place-items: center;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%)
+    translate(var(--lb-dx, 0px), var(--lb-dy, 0px))
+    scale(var(--lb-sx, 1), var(--lb-sy, 1));
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.lightbox-content[data-open="true"] {
+  transform: translate(-50%, -50%) translate(0px, 0px) scale(1, 1);
+}
+
+.lightbox-content-inner {
+  width: 100%;
+  height: 100%;
+  padding: 100px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+}
+
+.lightbox-content-inner img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #141414;
+  font-family: "Oranienbaum", system-ui, -apple-system, Segoe UI, Roboto,
+    sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 220ms ease;
+}
+
+.lightbox-close:hover {
+  background: transparent;
+}
+
+.lightbox-close[data-open="false"] {
+  opacity: 0;
+}
+
+.lightbox-close:focus-visible {
+  outline: 2px solid #141414;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-cell {
+    animation: none;
+    animation-delay: 0ms;
+    transform: scale(1);
+    box-shadow: none;
+  }
+
+  .photo-cell img {
+    transition: none;
+  }
+
+  .photo-cell:hover img {
+    transform: scale(1);
+  }
+}
