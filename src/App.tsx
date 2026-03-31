@@ -72,6 +72,15 @@ function buildCategories(): {
 const PHOTO_CATEGORIES = buildCategories();
 type ActiveFilter = "all" | CategoryId;
 
+const PRELOADED_IMAGE_URLS = new Set<string>();
+function preloadImage(url: string) {
+  if (PRELOADED_IMAGE_URLS.has(url)) return;
+  PRELOADED_IMAGE_URLS.add(url);
+  const img = new Image();
+  img.decoding = "async";
+  img.src = url;
+}
+
 function cellCategoryIndex(gridIndex: number): number {
   const n = PHOTO_CATEGORIES.length;
   return ((gridIndex % n) + n) % n;
@@ -147,6 +156,10 @@ const OptimizedCell = memo(
       [activeFilter, gridIndex, position.x, position.y]
     );
 
+    useEffect(() => {
+      preloadImage(src);
+    }, [src]);
+
     /** Stagger so neighboring cells don’t pop in in perfect sync (each cell is independent). */
     const enterDelayMs = useMemo(
       () =>
@@ -194,6 +207,9 @@ export default function App() {
   const [activeCellId, setActiveCellId] = useState<string | null>(null);
   const closeAfterAnimRef = useRef(false);
   const closePendingCountRef = useRef(0);
+  const [gridSize, setGridSize] = useState(() =>
+    window.innerWidth <= 720 ? 150 : 300
+  );
 
   const [targetSize, setTargetSize] = useState(() => {
     // Matches `.lightbox-content` padding so the detail view never overflows.
@@ -238,6 +254,12 @@ export default function App() {
       window.removeEventListener("resize", onResize);
     };
   }, [activePhotoSrc]);
+
+  useEffect(() => {
+    const onResize = () => setGridSize(window.innerWidth <= 720 ? 150 : 300);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useLayoutEffect(() => {
     if (!activePhotoSrc) return;
@@ -400,7 +422,7 @@ export default function App() {
         <ThiingsGrid
           key={activeFilter}
           className="thiings-layer"
-          gridSize={300}
+          gridSize={gridSize}
           renderItem={renderPhotoCell}
         />
       </div>

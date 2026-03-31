@@ -135,6 +135,14 @@ body {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --grid-gap: 25px;
+  }
+
+  .lightbox-content-inner {
+    padding: 25px;
+  }
+
   .app-header-row {
     flex-direction: column;
     align-items: stretch;
@@ -265,6 +273,12 @@ body {
   place-items: center;
 }
 
+@media (max-width: 720px) {
+  .lightbox-content-inner {
+    padding: 25px;
+  }
+}
+
 .lightbox-content-inner img {
   max-width: 100%;
   max-height: 100%;
@@ -273,9 +287,10 @@ body {
 }
 
 .lightbox-close {
-  position: fixed;
+  position: absolute;
   top: 1rem;
   right: 1rem;
+  z-index: 2;
   appearance: none;
   border: none;
   background: transparent;
