@@ -3,11 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://tu-dominio.com",
   "scripts": {
     "gen:local-photos": "node scripts/generate-local-photos.mjs",
     "dev": "npm run gen:local-photos && vite",
     "build": "npm run gen:local-photos && tsc -b && vite build",
-    "preview": "npm run gen:local-photos && vite preview"
+    "preview": "npm run gen:local-photos && vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -17,6 +20,7 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
+    "gh-pages": "^6.3.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5"
   }
