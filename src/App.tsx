@@ -15,8 +15,15 @@ import ThiingsGrid, { type ItemConfig } from "../lib/ThiingsGrid";
  * different seeds sometimes resolve to the same image.)
  * https://picsum.photos/
  */
-const PICSUM_W = 1600;
-const PICSUM_H = 1067;
+const GRID_PICSUM_W = 600;
+const GRID_PICSUM_H = 400;
+const DETAIL_PICSUM_W = 1600;
+const DETAIL_PICSUM_H = 1067;
+const THUMBNAIL_SIZE_FALLBACKS: ReadonlyArray<{ w: number; h: number }> = [
+  { w: 600, h: 400 },
+  { w: 500, h: 333 },
+  { w: 400, h: 267 },
+];
 
 /** Globally unique catalog ids (non-overlapping slices → no duplicate URLs across categories). */
 const PICSUM_MASTER_IDS: readonly number[] = [
@@ -42,14 +49,14 @@ const POOL_MULTIPLIER = 4;
 
 type CategoryId = (typeof PHOTO_CATEGORY_SPECS)[number]["id"];
 
-function idUrl(id: number): string {
-  return `https://picsum.photos/id/${id}/${PICSUM_W}/${PICSUM_H}`;
+function idUrl(id: number, w: number, h: number): string {
+  return `https://picsum.photos/id/${id}/${w}/${h}`;
 }
 
 function buildCategories(): {
   id: CategoryId;
   label: string;
-  images: string[];
+  imageIds: number[];
 }[] {
   let offset = 0;
   return PHOTO_CATEGORY_SPECS.map((spec) => {
@@ -64,7 +71,7 @@ function buildCategories(): {
     return {
       id: spec.id,
       label: spec.label,
-      images: slice.map(idUrl),
+      imageIds: slice,
     };
   });
 }
@@ -91,20 +98,40 @@ function toUint32(n: number): number {
 }
 
 /** Mix grid + tile position so neighbors rarely share the same pool slot (and URLs are unique per id). */
-function imageForCell(
+type ImageVariant = "grid" | "detail";
+
+function urlForId(id: number, variant: ImageVariant): string {
+  return variant === "grid"
+    ? idUrl(id, GRID_PICSUM_W, GRID_PICSUM_H)
+    : idUrl(id, DETAIL_PICSUM_W, DETAIL_PICSUM_H);
+}
+
+function gridThumbnailUrlForId(id: number, attempt: number): string {
+  const s = THUMBNAIL_SIZE_FALLBACKS[attempt] ?? THUMBNAIL_SIZE_FALLBACKS[0]!;
+  return idUrl(id, s.w, s.h);
+}
+
+function imageIdForCellWithFilter(
   gridIndex: number,
-  position: ItemConfig["position"]
-): string {
+  position: ItemConfig["position"],
+  activeFilter: ActiveFilter
+): number {
+  return activeFilter === "all"
+    ? imageIdForCell(gridIndex, position)
+    : imageIdForFilteredSlot(position, gridIndex, activeFilter);
+}
+
+function imageIdForCell(gridIndex: number, position: ItemConfig["position"]): number {
   const catIdx = cellCategoryIndex(gridIndex);
   const cat = PHOTO_CATEGORIES[catIdx]!;
-  const urls = cat.images;
+  const ids = cat.imageIds;
   const mix = toUint32(
     gridIndex * 374761393 +
       position.x * 668265263 +
       position.y * 2246822519 +
       catIdx * 3266489917
   );
-  return urls[mix % urls.length]!;
+  return ids[mix % ids.length]!;
 }
 
 function positiveMod(n: number, m: number): number {
@@ -116,12 +143,12 @@ function categoryById(id: CategoryId) {
 }
 
 /** Infinite single-category tiles: same mixing as `imageForCell` so neighbors differ. */
-function imageForFilteredSlot(
+function imageIdForFilteredSlot(
   position: ItemConfig["position"],
   gridIndex: number,
   categoryId: CategoryId
-): string {
-  const urls = categoryById(categoryId).images;
+): number {
+  const ids = categoryById(categoryId).imageIds;
   const catIdx = PHOTO_CATEGORIES.findIndex((c) => c.id === categoryId);
   const mix = toUint32(
     gridIndex * 374761393 +
@@ -129,18 +156,10 @@ function imageForFilteredSlot(
       position.y * 2246822519 +
       catIdx * 3266489917
   );
-  return urls[mix % urls.length]!;
+  return ids[mix % ids.length]!;
 }
 
-function cellImageSrc(
-  gridIndex: number,
-  position: ItemConfig["position"],
-  activeFilter: ActiveFilter
-): string {
-  return activeFilter === "all"
-    ? imageForCell(gridIndex, position)
-    : imageForFilteredSlot(position, gridIndex, activeFilter);
-}
+// (intentionally not using the older `cellImageSrc()` wrapper anymore)
 
 type PhotoCellProps = ItemConfig & {
   activeFilter: ActiveFilter;
@@ -151,14 +170,32 @@ type PhotoCellProps = ItemConfig & {
 const OptimizedCell = memo(
   function OptimizedCell(props: PhotoCellProps) {
     const { gridIndex, position, activeFilter, onOpen, isActive } = props;
-    const src = useMemo(
-      () => cellImageSrc(gridIndex, position, activeFilter),
+    const imageId = useMemo(
+      () => imageIdForCellWithFilter(gridIndex, position, activeFilter),
       [activeFilter, gridIndex, position.x, position.y]
     );
+    const [thumbAttempt, setThumbAttempt] = useState(0);
+    useEffect(() => setThumbAttempt(0), [imageId]);
+
+    const gridSrc = useMemo(() => gridThumbnailUrlForId(imageId, thumbAttempt), [
+      imageId,
+      thumbAttempt,
+    ]);
+    const detailSrc = useMemo(
+      () => urlForId(imageId, "detail"),
+      [imageId]
+    );
+
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [imgSrc, setImgSrc] = useState(gridSrc);
+    useEffect(() => {
+      setIsLoaded(false);
+      setImgSrc(gridSrc);
+    }, [gridSrc]);
 
     useEffect(() => {
-      preloadImage(src);
-    }, [src]);
+      preloadImage(gridSrc);
+    }, [gridSrc]);
 
     /** Stagger so neighboring cells don’t pop in in perfect sync (each cell is independent). */
     const enterDelayMs = useMemo(
@@ -174,19 +211,35 @@ const OptimizedCell = memo(
     return (
       <button
         type="button"
-        className="photo-cell"
+        className={isLoaded ? "photo-cell photo-cell--loaded" : "photo-cell"}
         style={staggerStyle}
         data-active={isActive ? "true" : "false"}
         onClick={(e) =>
           onOpen(
-            src,
+            detailSrc,
             e.currentTarget.getBoundingClientRect(),
             `${gridIndex}:${position.x},${position.y}`
           )
         }
         aria-label="Open photo"
       >
-        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} />
+        <img
+          src={imgSrc}
+          alt=""
+          decoding="async"
+          draggable={false}
+          onLoad={() => setIsLoaded(true)}
+          onError={() => {
+            // Some picsum IDs fail for certain thumbnail sizes (e.g. 600x400).
+            // Retry a couple smaller sizes, then fall back to the detail URL.
+            if (imgSrc === detailSrc) return;
+            if (thumbAttempt + 1 < THUMBNAIL_SIZE_FALLBACKS.length) {
+              setThumbAttempt((n) => n + 1);
+              return;
+            }
+            setImgSrc(detailSrc);
+          }}
+        />
       </button>
     );
   },
@@ -271,6 +324,7 @@ export default function App() {
 
   const openPhoto = useCallback((src: string, rect: DOMRect, cellId: string) => {
     closeAfterAnimRef.current = false;
+    preloadImage(src);
     setFromRect(rect);
     setActiveCellId(cellId);
     setBackdropOpen(false);
@@ -333,41 +387,6 @@ export default function App() {
           <div className="app-header-text">
             <h1>Enrique Nieto</h1>
           </div>
-          <div className="app-header-filters">
-            <div
-              className="filter-bar"
-              role="toolbar"
-              aria-label="Filter photos by type"
-            >
-              <button
-                type="button"
-                className={
-                  activeFilter === "all"
-                    ? "filter-btn filter-btn--active"
-                    : "filter-btn"
-                }
-                onClick={() => setActiveFilter("all")}
-                aria-pressed={activeFilter === "all"}
-              >
-                All
-              </button>
-              {PHOTO_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  className={
-                    activeFilter === cat.id
-                      ? "filter-btn filter-btn--active"
-                      : "filter-btn"
-                  }
-                  onClick={() => setActiveFilter(cat.id)}
-                  aria-pressed={activeFilter === cat.id}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </header>
       {activePhotoSrc ? (
@@ -426,6 +445,45 @@ export default function App() {
           renderItem={renderPhotoCell}
         />
       </div>
+      <footer className="app-footer">
+        <div className="app-footer-row">
+          <div className="app-footer-filters">
+            <div
+              className="filter-bar"
+              role="toolbar"
+              aria-label="Filter photos by type"
+            >
+              <button
+                type="button"
+                className={
+                  activeFilter === "all"
+                    ? "filter-btn filter-btn--active"
+                    : "filter-btn"
+                }
+                onClick={() => setActiveFilter("all")}
+                aria-pressed={activeFilter === "all"}
+              >
+                All
+              </button>
+              {PHOTO_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={
+                    activeFilter === cat.id
+                      ? "filter-btn filter-btn--active"
+                      : "filter-btn"
+                  }
+                  onClick={() => setActiveFilter(cat.id)}
+                  aria-pressed={activeFilter === cat.id}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

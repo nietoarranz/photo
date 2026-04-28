@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "gen:local-photos": "node scripts/generate-local-photos.mjs",
+    "dev": "npm run gen:local-photos && vite",
+    "build": "npm run gen:local-photos && tsc -b && vite build",
+    "preview": "npm run gen:local-photos && vite preview"
   },
   "dependencies": {
     "react": "^19.1.0",
