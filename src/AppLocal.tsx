@@ -135,7 +135,12 @@ function localPhotoForCell(
 type PhotoCellProps = ItemConfig & {
   activeKeywords: readonly Keyword[];
   pool: readonly string[];
-  onOpen: (src: string, fromRect: DOMRect, cellId: string) => void;
+  onOpen: (
+    fullSrc: string,
+    fromRect: DOMRect,
+    cellId: string,
+    previewSrc?: string
+  ) => void;
   isActive: boolean;
 };
 
@@ -198,7 +203,8 @@ const OptimizedCell = memo(
           onOpen(
             fullSrc,
             e.currentTarget.getBoundingClientRect(),
-            `${gridIndex}:${position.x},${position.y}`
+            `${gridIndex}:${position.x},${position.y}`,
+            imgSrc ?? fullSrc
           )
         }
         aria-label="Open photo"
@@ -227,6 +233,76 @@ const OptimizedCell = memo(
     prev.onOpen === next.onOpen
 );
 
+type FiniteLocalCellProps = {
+  file: string;
+  index: number;
+  onOpen: (
+    fullSrc: string,
+    fromRect: DOMRect,
+    cellId: string,
+    previewSrc?: string
+  ) => void;
+  isActive: boolean;
+};
+
+const FiniteLocalCell = memo(function FiniteLocalCell(props: FiniteLocalCellProps) {
+  const { file, index, onOpen, isActive } = props;
+
+  const fullSrc = useMemo(() => {
+    const parts = file.split("/").filter(Boolean);
+    return `/my-photos/${parts.map(encodeURIComponent).join("/")}`;
+  }, [file]);
+
+  const thumbSrc = useMemo(() => {
+    const parts = file.split("/").filter(Boolean);
+    return `/my-photos-thumbs/${parts.map(encodeURIComponent).join("/")}`;
+  }, [file]);
+
+  const [isLoaded, setIsLoaded] = useState(false);
+  useEffect(() => setIsLoaded(false), [fullSrc]);
+
+  const [imgSrc, setImgSrc] = useState<string | null>(thumbSrc);
+  useEffect(() => {
+    setImgSrc(thumbSrc);
+  }, [thumbSrc]);
+
+  const enterDelayMs = useMemo(() => positiveMod(index * 73, 95), [index]);
+  const staggerStyle = useMemo(
+    () =>
+      ({
+        "--enter-delay": `${enterDelayMs}ms`,
+      }) as CSSProperties,
+    [enterDelayMs]
+  );
+
+  return (
+    <button
+      type="button"
+      className={
+        isLoaded ? "photo-cell photo-cell--local photo-cell--loaded" : "photo-cell photo-cell--local"
+      }
+      style={staggerStyle}
+      data-active={isActive ? "true" : "false"}
+      onClick={(e) =>
+        onOpen(fullSrc, e.currentTarget.getBoundingClientRect(), `file:${file}`, imgSrc ?? fullSrc)
+      }
+      aria-label="Open photo"
+    >
+      <img
+        src={imgSrc ?? fullSrc}
+        alt=""
+        decoding="async"
+        draggable={false}
+        onLoad={() => setIsLoaded(true)}
+        onError={() => {
+          if (imgSrc === fullSrc) return;
+          setImgSrc(fullSrc);
+        }}
+      />
+    </button>
+  );
+});
+
 export default function AppLocal() {
   const [activeKeywords, setActiveKeywords] = useState<readonly Keyword[]>([]);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -245,9 +321,14 @@ export default function AppLocal() {
   const [activeCellId, setActiveCellId] = useState<string | null>(null);
   const closeAfterAnimRef = useRef(false);
   const closePendingCountRef = useRef(0);
+  const activePhotoFullSrcRef = useRef<string | null>(null);
   const [gridSize, setGridSize] = useState(() =>
     window.innerWidth <= 720 ? 150 : 300
   );
+  const [viewport, setViewport] = useState(() => ({
+    w: window.innerWidth,
+    h: window.innerHeight,
+  }));
 
   const [targetSize, setTargetSize] = useState(() => {
     const pad = 100;
@@ -291,7 +372,10 @@ export default function AppLocal() {
   }, [activePhotoSrc]);
 
   useEffect(() => {
-    const onResize = () => setGridSize(window.innerWidth <= 720 ? 150 : 300);
+    const onResize = () => {
+      setGridSize(window.innerWidth <= 720 ? 150 : 300);
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -304,13 +388,23 @@ export default function AppLocal() {
     });
   }, [activePhotoSrc]);
 
-  const openPhoto = useCallback((src: string, rect: DOMRect, cellId: string) => {
+  const openPhoto = useCallback(
+    (fullSrc: string, rect: DOMRect, cellId: string, previewSrc?: string) => {
     closeAfterAnimRef.current = false;
-    preloadImage(src);
+    preloadImage(fullSrc);
     setFromRect(rect);
     setActiveCellId(cellId);
     setBackdropOpen(false);
-    setActivePhotoSrc(src);
+    activePhotoFullSrcRef.current = fullSrc;
+    setActivePhotoSrc(previewSrc ?? fullSrc);
+
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      if (activePhotoFullSrcRef.current !== fullSrc) return;
+      setActivePhotoSrc(fullSrc);
+    };
+    img.src = fullSrc;
   }, []);
 
   const closePhoto = useCallback(() => {
@@ -325,6 +419,7 @@ export default function AppLocal() {
     closePendingCountRef.current -= 1;
     if (closePendingCountRef.current > 0) return;
     setActivePhotoSrc(null);
+    activePhotoFullSrcRef.current = null;
     setFromRect(null);
     setActiveCellId(null);
     closeAfterAnimRef.current = false;
@@ -478,6 +573,20 @@ export default function AppLocal() {
     setActiveKeywords(normalizedActiveKeywords);
   }, [activeKeywords, normalizedActiveKeywords]);
 
+  const useFiniteGrid = useMemo(() => {
+    if (normalizedActiveKeywords.length === 0) return false;
+    if (pool.length === 0) return true;
+
+    const padX = 24 * 2;
+    const padY = 24 * 2;
+    const usableW = Math.max(0, viewport.w - padX);
+    const usableH = Math.max(0, viewport.h - padY);
+    const cellsX = Math.max(1, Math.floor(usableW / gridSize));
+    const cellsY = Math.max(1, Math.floor(usableH / gridSize));
+    const capacity = cellsX * cellsY;
+    return pool.length <= capacity;
+  }, [gridSize, normalizedActiveKeywords.length, pool.length, viewport.h, viewport.w]);
+
   const toggleKeyword = useCallback((kw: Keyword) => {
     setActiveKeywords((prev) => {
       const has = prev.includes(kw);
@@ -568,12 +677,36 @@ export default function AppLocal() {
         </div>
       ) : null}
       <div className="grid-shell">
-        <ThiingsGrid
-          key={normalizedActiveKeywords.join("|") || "all"}
-          className="thiings-layer"
-          gridSize={gridSize}
-          renderItem={renderPhotoCell}
-        />
+        {useFiniteGrid ? (
+          <div className="finite-grid-shell">
+            <div
+              className="finite-grid"
+              style={
+                {
+                  "--cell-size": `${gridSize}px`,
+                } as CSSProperties
+              }
+            >
+              {pool.map((file, index) => (
+                <div key={file} className="finite-grid-cell">
+                  <FiniteLocalCell
+                    file={file}
+                    index={index}
+                    onOpen={openPhoto}
+                    isActive={activeCellId === `file:${file}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ThiingsGrid
+            key={normalizedActiveKeywords.join("|") || "all"}
+            className="thiings-layer"
+            gridSize={gridSize}
+            renderItem={renderPhotoCell}
+          />
+        )}
       </div>
       <footer className="app-footer">
         <div className="app-footer-row">

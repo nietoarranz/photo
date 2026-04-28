@@ -22,6 +22,7 @@ body {
 :root {
   --grid-gap: 50px;
   --bar-border-color: rgba(0, 0, 0, 0.08);
+  --photo-enter-duration: 1.2s;
 }
 
 .app {
@@ -276,13 +277,40 @@ body {
   background: #E8E7E4;
 }
 
+.finite-grid-shell {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 24px
+    max(24px, env(safe-area-inset-bottom));
+}
+
+.finite-grid {
+  --cell-size: 300px;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(var(--cell-size), var(--cell-size)));
+  justify-content: center;
+  align-content: center;
+}
+
+.finite-grid-cell {
+  position: relative;
+  width: var(--cell-size);
+  height: var(--cell-size);
+  user-select: none;
+}
+
 /*
  * Per-cell reveal: fully sharp at every keyframe — only scale goes 0 → 100%.
  */
 @keyframes photo-cell-scale-in {
   from {
     opacity: 1;
-    transform: scale(0.7);
+    transform: scale(0.55);
     filter: none;
   }
 
@@ -309,7 +337,7 @@ body {
   cursor: zoom-in;
   text-align: inherit;
   transform-origin: center center;
-  animation: photo-cell-scale-in 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: photo-cell-scale-in var(--photo-enter-duration) cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: var(--enter-delay, 0ms);
 }
 
@@ -365,7 +393,7 @@ body {
 }
 
 .lightbox-content {
-  display: grid;
+  display: flex;
   place-items: center;
   position: fixed;
   left: 50%;
@@ -384,9 +412,9 @@ body {
 .lightbox-content-inner {
   width: 100%;
   height: 100%;
-  padding: 100px;
+  padding: clamp(24px, 6vw, 100px);
   box-sizing: border-box;
-  display: grid;
+  display: flex;
   place-items: center;
 }
 
@@ -397,8 +425,8 @@ body {
 }
 
 .lightbox-content-inner img {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
 }
