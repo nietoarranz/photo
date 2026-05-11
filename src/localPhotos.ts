@@ -17,7 +17,7 @@ export type LocalPhotoCategory = {
  * Example:
  * files: ["nature-01.jpg", "nature-02.jpg"]
  *
- * They will be served at `/my-photos/<filename>`.
+ * They will be served at `<base>/my-photos/<filename>` (e.g. `/my-photos/...` locally, `/photo/my-photos/...` on GitHub Pages).
  */
 export const LOCAL_PHOTO_CATEGORIES: readonly LocalPhotoCategory[] = [
   { id: "nature", label: "Nature", files: [] },
@@ -28,7 +28,7 @@ export const LOCAL_PHOTO_CATEGORIES: readonly LocalPhotoCategory[] = [
 ];
 
 export function localPhotoUrl(filename: string) {
-  return `/my-photos/${encodeURIComponent(filename)}`;
+  return `${import.meta.env.BASE_URL}my-photos/${encodeURIComponent(filename)}`;
 }
 
 export function flattenLocalPhotos(categories: readonly LocalPhotoCategory[]) {

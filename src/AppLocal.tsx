@@ -25,6 +25,8 @@ function preloadImage(url: string) {
   img.src = url;
 }
 
+const APP_BASE_URL = import.meta.env.BASE_URL;
+
 function positiveMod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
@@ -157,7 +159,7 @@ const OptimizedCell = memo(
       if (!photo) return null;
       // Allow nested folders like `nature/IMG_1234.jpg` without encoding the slash.
       const parts = photo.file.split("/").filter(Boolean);
-      return `/my-photos/${parts.map(encodeURIComponent).join("/")}`;
+      return `${APP_BASE_URL}my-photos/${parts.map(encodeURIComponent).join("/")}`;
     }, [photo]);
 
     const [isLoaded, setIsLoaded] = useState(false);
@@ -166,7 +168,7 @@ const OptimizedCell = memo(
     const thumbSrc = useMemo(() => {
       if (!photo) return null;
       const parts = photo.file.split("/").filter(Boolean);
-      return `/my-photos-thumbs/${parts.map(encodeURIComponent).join("/")}`;
+      return `${APP_BASE_URL}my-photos-thumbs/${parts.map(encodeURIComponent).join("/")}`;
     }, [photo]);
 
     const [imgSrc, setImgSrc] = useState<string | null>(thumbSrc);
@@ -250,12 +252,12 @@ const FiniteLocalCell = memo(function FiniteLocalCell(props: FiniteLocalCellProp
 
   const fullSrc = useMemo(() => {
     const parts = file.split("/").filter(Boolean);
-    return `/my-photos/${parts.map(encodeURIComponent).join("/")}`;
+    return `${APP_BASE_URL}my-photos/${parts.map(encodeURIComponent).join("/")}`;
   }, [file]);
 
   const thumbSrc = useMemo(() => {
     const parts = file.split("/").filter(Boolean);
-    return `/my-photos-thumbs/${parts.map(encodeURIComponent).join("/")}`;
+    return `${APP_BASE_URL}my-photos-thumbs/${parts.map(encodeURIComponent).join("/")}`;
   }, [file]);
 
   const [isLoaded, setIsLoaded] = useState(false);
