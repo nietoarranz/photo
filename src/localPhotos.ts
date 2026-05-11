@@ -17,7 +17,7 @@ export type LocalPhotoCategory = {
  * Example:
  * files: ["nature-01.jpg", "nature-02.jpg"]
  *
- * They will be served at `<base>/my-photos/<filename>` (e.g. `/my-photos/...` locally, `/photo/my-photos/...` on GitHub Pages).
+ * They will be served at `<base>/my-photos/<filename>` (Vite `base` + `import.meta.env.BASE_URL`).
  */
 export const LOCAL_PHOTO_CATEGORIES: readonly LocalPhotoCategory[] = [
   { id: "nature", label: "Nature", files: [] },
