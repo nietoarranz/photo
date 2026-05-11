@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Oranienbaum&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Abel&family=Oranienbaum&display=swap");
 
 *,
 *::before,
@@ -85,11 +85,32 @@ body {
 }
 
 .app-header h1 {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(0.35em - 2px);
   margin: 0 0 0.35rem;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: "Abel", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: rgba(93, 92, 91, 1);
+}
+
+.app-header-title-lockup {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.app-header-title-icon {
+  flex-shrink: 0;
+  display: block;
+  margin-right: 10px;
+}
+
+.app-header-title-photo {
+  color: #a5a5a5;
 }
 
 .app-header p {
